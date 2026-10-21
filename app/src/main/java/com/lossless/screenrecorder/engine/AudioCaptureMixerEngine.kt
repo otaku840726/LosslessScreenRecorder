@@ -95,7 +95,6 @@ class AudioCaptureMixerEngine(
         }
 
         if (internalRecord == null && micRecord == null) {
-            // If neither audio source could initialize (e.g. missing permission), fall back safely
             muxerWrapper.disableAudioTrackExpectation()
             return
         }
@@ -157,13 +156,17 @@ class AudioCaptureMixerEngine(
             val micRead = if (mRec != null) {
                 mRec.read(micBuf, 0, frameShorts, AudioRecord.READ_BLOCKING)
             } else if (sysRec != null) {
-                // If only internal audio is active, read blocking on internal audio
                 sysRec.read(internalBuf, 0, frameShorts, AudioRecord.READ_BLOCKING)
             } else 0
 
             val samplesToProcess = max(sysRead, micRead)
             if (samplesToProcess <= 0) {
                 SystemClock.sleep(5)
+                continue
+            }
+
+            if (muxerWrapper.isCurrentlyPaused()) {
+                drainAudioCodecOutput(codec, bufferInfo)
                 continue
             }
 
@@ -183,7 +186,8 @@ class AudioCaptureMixerEngine(
             }
 
             val bytesToFeed = samplesToProcess * 2
-            val ptsUs = SystemClock.elapsedRealtimeNanos() / 1000L
+            // Use System.nanoTime() / 1000L (CLOCK_MONOTONIC) matching Surface video timestamps
+            val ptsUs = System.nanoTime() / 1000L
 
             val inIndex = runCatching { codec.dequeueInputBuffer(10_000L) }.getOrDefault(-1)
             if (inIndex >= 0) {
