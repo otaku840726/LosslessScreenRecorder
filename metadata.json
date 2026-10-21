@@ -1,0 +1,8 @@
+{
+  "name": "Lossless Recorder",
+  "description": "Native physical resolution, ultra-high bitrate All-I HEVC/AVC screen recorder with dual PCM audio mixing and 3 control triggers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

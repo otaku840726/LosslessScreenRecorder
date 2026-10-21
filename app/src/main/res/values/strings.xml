@@ -1,0 +1,99 @@
+<resources>
+    <string name="app_name">Lossless Recorder</string>
+    <string name="app_subtitle">視覺無損・物理原生像素螢幕錄影</string>
+    <string name="qs_tile_label">無損螢幕錄影</string>
+    <string name="qs_tile_subtitle_idle">點擊啟動點對點錄製</string>
+    <string name="qs_tile_subtitle_recording">錄影中 - 點擊停止</string>
+
+    <!-- Navigation Tabs -->
+    <string name="nav_encoder">無損編碼</string>
+    <string name="nav_audio_controls">音源與入口</string>
+    <string name="nav_recordings">錄影作品庫</string>
+
+    <!-- Telemetry Dashboard -->
+    <string name="telemetry_header_title">SOC 硬體編碼與面板遙測</string>
+    <string name="telemetry_native_panel">面板最高物理像素</string>
+    <string name="telemetry_aligned_output">實際輸出對齊像素</string>
+    <string name="telemetry_codec_max">硬體編碼上限</string>
+    <string name="telemetry_estimated_size">預估寫入流量</string>
+    <string name="telemetry_alignment_badge">對齊倍數: %1$d×%2$d px | 最高 %3$d Hz</string>
+
+    <!-- Video Encoder Settings -->
+    <string name="section_resolution_title">1. 解析度與點對點模式 (突破 1080p 限制)</string>
+    <string name="res_mode_native">真・物理面板最高像素</string>
+    <string name="res_mode_native_desc">直接擷取 Display.Mode 最大物理尺寸，避免系統縮放模糊</string>
+    <string name="res_mode_current">當前系統渲染像素</string>
+    <string name="res_mode_current_desc">依照目前系統 WindowMetrics 渲染解析度點對點擷取</string>
+    <string name="res_mode_custom_scale">75% 性能平衡像素</string>
+    <string name="res_mode_custom_scale_desc">等比例縮減並自動對齊硬體編碼倍數，適合長時間錄影</string>
+
+    <string name="section_codec_title">2. 視覺無損硬體編碼器 (Surface Zero-Copy)</string>
+    <string name="codec_hevc_title">H.265 (HEVC)</string>
+    <string name="codec_hevc_desc">推薦・高壓縮效率，2K/4K 60-120fps 畫質最佳</string>
+    <string name="codec_avc_title">H.264 (AVC)</string>
+    <string name="codec_avc_desc">廣泛相容・適合舊型剪輯軟體或舊款播放器</string>
+
+    <string name="section_bitrate_title">3. 目標碼率與色彩模式</string>
+    <string name="bitrate_mode_cbr">CBR 固定極高碼率</string>
+    <string name="bitrate_mode_vbr">VBR 動態高畫質</string>
+    <string name="bitrate_mode_cq">CQ 無損品質優先</string>
+
+    <string name="section_framerate_iframe_title">4. 幀率與關鍵影格間隔 (All-I 無損模式)</string>
+    <string name="iframe_all_i_title">All-I 全關鍵影格 (0 秒間隔)</string>
+    <string name="iframe_all_i_desc">每一幀皆為獨立 I-Frame，徹底消除運動模糊與色塊，剪輯最順暢</string>
+    <string name="iframe_1s_title">標準高畫質 (1 秒間隔)</string>
+    <string name="iframe_1s_desc">每秒插入一個關鍵影格，兼顧極致畫質與檔案容量</string>
+    <string name="iframe_2s_title">緊湊封裝 (2 秒間隔)</string>
+    <string name="iframe_2s_desc">適合長時間錄製靜態或一般操作畫面</string>
+
+    <!-- Audio & Control Entry Settings -->
+    <string name="section_audio_source_title">1. 四種音源自由組合 (48kHz / 320kbps AAC)</string>
+    <string name="audio_mode_mute">靜音模式 (純畫面無音軌)</string>
+    <string name="audio_mode_internal">僅系統內部聲音 (AudioPlaybackCapture)</string>
+    <string name="audio_mode_mic">僅麥克風解說聲音</string>
+    <string name="audio_mode_both">系統內錄 + 麥克風 (雙路 16-bit PCM 即時混音)</string>
+    <string name="audio_internal_gain_label">系統內錄音量增益</string>
+    <string name="audio_mic_gain_label">麥克風音量增益</string>
+    <string name="audio_drm_notice">提示：Android 10+ 系統內錄支援絕大多數遊戲與影音 App；受 DRM 保護或明確禁止擷取的應用程式會由系統自動靜音。</string>
+
+    <string name="section_control_entries_title">2. 三大操控入口與防入鏡設定</string>
+    <string name="control_notif_title">常駐通知欄控制器</string>
+    <string name="control_notif_desc">提供開始/暫停/停止按鈕，點擊後自動延遲 300ms 開錄避免通知欄入鏡</string>
+    <string name="control_floating_title">桌面懸浮球控制器 (Overlay Ball)</string>
+    <string name="control_floating_desc">可拖曳靠邊吸附，支援倒數計時與開錄瞬間自動隱藏避免入鏡</string>
+    <string name="control_floating_hide_on_record">錄影期間自動完全隱藏懸浮球 (零入鏡模式)</string>
+    <string name="control_qs_tile_title">系統下拉快速設定磁貼 (Quick Settings Tile)</string>
+    <string name="control_qs_tile_desc">從螢幕頂部下拉控制中心即可一鍵啟動或停止無損錄影</string>
+    <string name="control_qs_tile_action">立即新增磁貼至系統控制中心</string>
+
+    <string name="section_safety_stop_title">3. 倒數計時與自動存檔保護</string>
+    <string name="countdown_label">開始錄影前倒數秒數</string>
+    <string name="auto_stop_screen_off_title">螢幕關閉時自動停止並安全封裝存檔</string>
+    <string name="auto_stop_screen_off_desc">監聽 ACTION_SCREEN_OFF 並立即寫入 MP4 索引檔尾，防止鎖屏造成檔案損毀</string>
+
+    <!-- Recording Action & Status -->
+    <string name="btn_start_recording">啟動點對點無損錄影</string>
+    <string name="btn_stop_recording">停止並封裝 MP4</string>
+    <string name="btn_pause_recording">暫停錄影</string>
+    <string name="btn_resume_recording">繼續錄影</string>
+    <string name="status_idle">STANDBY · 硬體管線就緒</string>
+    <string name="status_recording">REC · 原生像素零拷貝錄製中</string>
+    <string name="status_paused">PAUSED · 錄製已暫停 (PTS 時間戳補償中)</string>
+
+    <!-- Recordings Library -->
+    <string name="library_title">無損錄影作品與規格檢驗室</string>
+    <string name="library_empty_title">尚無無損錄影檔案</string>
+    <string name="library_empty_subtitle">點擊下方「啟動點對點無損錄影」或使用桌面懸浮球、下拉磁貼開始您的第一部原生像素錄製。檔案將自動保存於 Movies/LosslessRecorder。</string>
+    <string name="library_refresh">重新掃描相簿</string>
+    <string name="video_action_play">播放預覽</string>
+    <string name="video_action_inspect">檢驗規格</string>
+    <string name="video_action_share">分享檔案</string>
+    <string name="video_action_delete">刪除檔案</string>
+
+    <!-- Notification Channel -->
+    <string name="notif_channel_name">無損螢幕錄製前台服務</string>
+    <string name="notif_channel_desc">提供常駐通知欄開始、暫停與停止螢幕錄製控制</string>
+    <string name="notif_title_standby">Lossless Recorder 待命中</string>
+    <string name="notif_title_recording">正在無損錄製螢幕 (%1$s)</string>
+    <string name="notif_title_paused">螢幕錄製已暫停 (%1$s)</string>
+</resources>

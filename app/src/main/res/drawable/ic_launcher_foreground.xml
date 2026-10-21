@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Viewfinder Corner Brackets in Electric Cyan (#00E5FF) -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M28,34 L28,28 L42,28 L42,33 L33,33 L33,42 L28,42 Z" />
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M80,34 L80,28 L66,28 L66,33 L75,33 L75,42 L80,42 Z" />
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M28,74 L28,80 L42,80 L42,75 L33,75 L33,66 L28,66 Z" />
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M80,74 L80,80 L66,80 L66,75 L75,75 L75,66 L80,66 Z" />
+    <!-- Inner Ring -->
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M54,34 A20,20 0 1,1 54,74 A20,20 0 1,1 54,34 Z" />
+    <!-- Core Crimson Record Dot (#FF2A54) -->
+    <path
+        android:fillColor="#FF2A54"
+        android:pathData="M54,41 A13,13 0 1,1 54,67 A13,13 0 1,1 54,41 Z" />
+</vector>

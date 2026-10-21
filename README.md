@@ -12,10 +12,18 @@
 3. **自由音源組合與即時混音**：
    - 支援「靜音」、「僅系統內錄 (`AudioPlaybackCapture`)」、「僅麥克風」、「系統內錄 + 麥克風雙路即時混音（附獨立音量增益控制）」。
    - 音訊採用 48kHz / 320kbps AAC-LC 高音質編碼。
-4. **三大操控入口（由用戶自由選擇）**：
-   - **常駐通知欄控制器**
-   - **桌面懸浮球（支援倒數、自動隱藏避免入鏡）**
+4. **三大操控入口與安全保護**：
+   - **常駐通知欄控制器**（附 300ms 收起延遲防入鏡）
+   - **桌面懸浮球**（支援倒數計時、錄影期間自動完全隱藏零入鏡）
    - **系統下拉快速設定磁貼 (`Quick Settings Tile`)**
+   - **螢幕關閉自動停止並封裝存檔**（監聽 `ACTION_SCREEN_OFF` 寫入 MP4 索引檔尾）
+
+## GitHub Actions 自動打包 APK
+本專案已內建 GitHub Actions 自動化建置流程（`.github/workflows/android-build.yml`）：
+- 每次推送（Push）至 `main` / `master` 分支，或手動觸發 `workflow_dispatch` 時，會自動配置 JDK 21、Android SDK 與 Gradle 9.3.1 並打包：
+  - `LosslessRecorder-Debug-APK` (`app-debug.apk`)
+  - `LosslessRecorder-Release-APK` (`app-release.apk`)
+- 當推送 `v*` 標籤（例如 `v1.0.0`）時，將自動建立 GitHub Release 並附上編譯完成的 APK 檔案。
 
 ## 文件導覽
 - [系統架構與開發規劃書 (docs/IMPLEMENTATION_PLAN.md)](docs/IMPLEMENTATION_PLAN.md)

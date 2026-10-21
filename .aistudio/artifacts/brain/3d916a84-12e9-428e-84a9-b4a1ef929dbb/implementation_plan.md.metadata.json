@@ -1,0 +1,6 @@
+{
+  "summary":  "LosslessScreenRecorder (Android 視覺無損螢幕錄製工具) 完整架構與實作規劃書，涵蓋真・物理原生像素探測與動態對齊、Surface Zero-Copy HEVC/AVC 極高碼率與 All-I 關鍵影格硬體編碼、雙路音源 (系統內錄 + 麥克風) 16-bit PCM 即時混音、三大操控入口（常駐通知欄、可自動避鏡之桌面懸浮球、系統下拉快速設定磁貼）、螢幕關閉自動安全封裝存檔機制，以及專業硬體監控深色儀表板 UI 設計。",
+  "updatedAt":  "2026-10-21T04:17:38.074485962Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
