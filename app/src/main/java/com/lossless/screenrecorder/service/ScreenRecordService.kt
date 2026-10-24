@@ -27,8 +27,10 @@ import com.lossless.screenrecorder.engine.AudioCaptureMixerEngine
 import com.lossless.screenrecorder.engine.MediaMuxerWrapper
 import com.lossless.screenrecorder.engine.VideoEncoderCore
 import com.lossless.screenrecorder.model.AudioSourceMode
+import com.lossless.screenrecorder.model.OverlayControlStyle
 import com.lossless.screenrecorder.model.RecorderConfig
 import com.lossless.screenrecorder.model.RecordingSessionState
+import com.lossless.screenrecorder.model.SidebarTapBehavior
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -98,6 +100,8 @@ class ScreenRecordService : Service() {
             RecordingStateHolder.sessionState.collect { state ->
                 floatingControlManager.updateForState(
                     state = state,
+                    style = currentConfig.overlayControlStyle,
+                    tapBehavior = currentConfig.sidebarTapBehavior,
                     hideOnRecord = currentConfig.hideFloatingBallWhileRecording
                 )
             }
@@ -129,10 +133,32 @@ class ScreenRecordService : Service() {
                 stopRecordingSession()
             }
             ACTION_TOGGLE_FLOATING_BALL -> {
-                val enable = intent.getBooleanExtra(EXTRA_ENABLE_FLOATING_BALL, false)
-                val hideOnRecord = intent.getBooleanExtra(EXTRA_HIDE_BALL_ON_RECORD, true)
-                if (enable) {
-                    floatingControlManager.showOverlay(hideOnRecord)
+                val enable = intent.getBooleanExtra(EXTRA_ENABLE_FLOATING_BALL, true)
+                val styleName = intent.getStringExtra(EXTRA_OVERLAY_STYLE)
+                val tapName = intent.getStringExtra(EXTRA_SIDEBAR_TAP_BEHAVIOR)
+                val hideOnRecord = intent.getBooleanExtra(EXTRA_HIDE_BALL_ON_RECORD, false)
+
+                val style = styleName?.let {
+                    runCatching { OverlayControlStyle.valueOf(it) }.getOrNull()
+                } ?: currentConfig.overlayControlStyle
+
+                val tapBehavior = tapName?.let {
+                    runCatching { SidebarTapBehavior.valueOf(it) }.getOrNull()
+                } ?: currentConfig.sidebarTapBehavior
+
+                currentConfig = currentConfig.copy(
+                    enableFloatingBall = enable,
+                    overlayControlStyle = style,
+                    sidebarTapBehavior = tapBehavior,
+                    hideFloatingBallWhileRecording = hideOnRecord
+                )
+
+                if (enable && floatingControlManager.canDrawOverlays()) {
+                    floatingControlManager.showOverlay(
+                        style = style,
+                        tapBehavior = tapBehavior,
+                        hideOnRecord = hideOnRecord
+                    )
                 } else {
                     floatingControlManager.hideOverlay()
                 }
@@ -159,7 +185,11 @@ class ScreenRecordService : Service() {
         countdownJob = serviceScope.launch {
             currentConfig = preferencesRepository.configFlow.first()
             if (currentConfig.enableFloatingBall && floatingControlManager.canDrawOverlays()) {
-                floatingControlManager.showOverlay(currentConfig.hideFloatingBallWhileRecording)
+                floatingControlManager.showOverlay(
+                    style = currentConfig.overlayControlStyle,
+                    tapBehavior = currentConfig.sidebarTapBehavior,
+                    hideOnRecord = currentConfig.hideFloatingBallWhileRecording
+                )
             }
 
             // 300ms delay so system notification panel / permission dialog finishes closing cleanly
@@ -183,7 +213,6 @@ class ScreenRecordService : Service() {
         val alignedRes = capabilityDetector.calculateAlignedResolution(capabilities, currentConfig)
         activeResolutionLabel = alignedRes.displayText
 
-        // Hide floating ball right BEFORE creating VirtualDisplay so 0 overlay frames enter the recording
         if (currentConfig.hideFloatingBallWhileRecording) {
             floatingControlManager.updateForState(
                 state = RecordingSessionState.Recording(
@@ -194,6 +223,8 @@ class ScreenRecordService : Service() {
                     codecLabel = currentConfig.codecType.shortTag,
                     bitrateMbps = currentConfig.bitrateMbps
                 ),
+                style = currentConfig.overlayControlStyle,
+                tapBehavior = currentConfig.sidebarTapBehavior,
                 hideOnRecord = true
             )
             delay(60L)
@@ -233,6 +264,15 @@ class ScreenRecordService : Service() {
                 vEncoder.prepare()
             }
 
+            val aEngine = AudioCaptureMixerEngine(
+                config = currentConfig,
+                mediaProjection = projection,
+                muxerWrapper = muxer
+            )
+            withContext(Dispatchers.IO) {
+                aEngine.start()
+            }
+
             val vDisplay = projection.createVirtualDisplay(
                 "LosslessNativeDisplay",
                 alignedRes.alignedWidth,
@@ -243,15 +283,6 @@ class ScreenRecordService : Service() {
                 null,
                 null
             )
-
-            val aEngine = AudioCaptureMixerEngine(
-                config = currentConfig,
-                mediaProjection = projection,
-                muxerWrapper = muxer
-            )
-            withContext(Dispatchers.IO) {
-                aEngine.start()
-            }
 
             mediaProjection = projection
             muxerWrapper = muxer
@@ -476,6 +507,8 @@ class ScreenRecordService : Service() {
         private const val EXTRA_RESULT_CODE = "extra_result_code"
         private const val EXTRA_RESULT_DATA = "extra_result_data"
         private const val EXTRA_ENABLE_FLOATING_BALL = "extra_enable_floating_ball"
+        private const val EXTRA_OVERLAY_STYLE = "extra_overlay_style"
+        private const val EXTRA_SIDEBAR_TAP_BEHAVIOR = "extra_sidebar_tap_behavior"
         private const val EXTRA_HIDE_BALL_ON_RECORD = "extra_hide_ball_on_record"
 
         fun startRecordingWithProjection(context: Context, resultCode: Int, resultData: Intent) {
@@ -515,11 +548,19 @@ class ScreenRecordService : Service() {
             )
         }
 
-        fun syncFloatingBall(context: Context, enable: Boolean, hideOnRecord: Boolean) {
+        fun syncFloatingOverlay(
+            context: Context,
+            enable: Boolean,
+            style: OverlayControlStyle,
+            tapBehavior: SidebarTapBehavior,
+            hideOnRecord: Boolean
+        ) {
             context.startService(
                 Intent(context, ScreenRecordService::class.java).apply {
                     action = ACTION_TOGGLE_FLOATING_BALL
                     putExtra(EXTRA_ENABLE_FLOATING_BALL, enable)
+                    putExtra(EXTRA_OVERLAY_STYLE, style.name)
+                    putExtra(EXTRA_SIDEBAR_TAP_BEHAVIOR, tapBehavior.name)
                     putExtra(EXTRA_HIDE_BALL_ON_RECORD, hideOnRecord)
                 }
             )

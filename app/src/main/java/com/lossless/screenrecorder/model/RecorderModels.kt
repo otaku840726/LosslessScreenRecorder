@@ -44,7 +44,22 @@ enum class AudioSourceMode(
     MUTE(needsInternal = false, needsMic = false, shortLabel = "靜音無音軌"),
     INTERNAL_ONLY(needsInternal = true, needsMic = false, shortLabel = "僅系統內錄"),
     MIC_ONLY(needsInternal = false, needsMic = true, shortLabel = "僅麥克風"),
-    INTERNAL_AND_MIC(needsInternal = true, needsMic = true, shortLabel = "內錄+麥克風混音")
+    INTERNAL_AND_MIC(needsInternal = true, needsMic = true, shortLabel = "內錄+麥克風混音");
+
+    val needsRecordAudioPermission: Boolean
+        get() = needsInternal || needsMic
+}
+
+@Serializable
+enum class OverlayControlStyle(val label: String) {
+    EDGE_SIDEBAR("貼邊隱形側邊欄"),
+    FLOATING_BALL("傳統懸浮球")
+}
+
+@Serializable
+enum class SidebarTapBehavior(val label: String) {
+    EXPAND_PANEL("展開側邊控制欄"),
+    INSTANT_STOP("點擊直接停止錄影")
 }
 
 @Serializable
@@ -63,8 +78,10 @@ data class RecorderConfig(
     val audioSampleRateHz: Int = 48000,
     val countdownSeconds: Int = 3,
     val enableNotificationController: Boolean = true,
-    val enableFloatingBall: Boolean = false,
-    val hideFloatingBallWhileRecording: Boolean = true,
+    val enableFloatingBall: Boolean = true,
+    val overlayControlStyle: OverlayControlStyle = OverlayControlStyle.EDGE_SIDEBAR,
+    val sidebarTapBehavior: SidebarTapBehavior = SidebarTapBehavior.EXPAND_PANEL,
+    val hideFloatingBallWhileRecording: Boolean = false,
     val autoStopOnScreenOff: Boolean = true
 ) {
     val estimatedMegabytesPerMinute: Float

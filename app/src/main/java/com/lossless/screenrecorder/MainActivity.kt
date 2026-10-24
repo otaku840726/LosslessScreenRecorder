@@ -120,28 +120,37 @@ class MainActivity : ComponentActivity() {
                 // Runtime Permissions (RECORD_AUDIO + POST_NOTIFICATIONS) Launcher
                 val runtimePermissionsLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestMultiplePermissions()
-                ) {
+                ) { grants ->
+                    val audioNeeded = uiState.config.audioSourceMode.needsRecordAudioPermission
+                    val audioGranted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (audioNeeded && !audioGranted && grants[Manifest.permission.RECORD_AUDIO] == false) {
+                        viewModel.showBannerMessage("提示：未授予錄音權限，本次錄製將無法擷取聲音。")
+                    }
                     val projectionManager =
                         context.getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                     mediaProjectionLauncher.launch(projectionManager.createScreenCaptureIntent())
                 }
 
-                // Overlay Permission Launcher for Floating Control Ball
+                // Overlay Permission Launcher for Edge Sidebar / Floating Ball
                 val overlayPermissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
                 ) {
                     viewModel.refreshOverlayPermissionState()
                     if (Settings.canDrawOverlays(context)) {
                         viewModel.setEnableFloatingBall(true)
-                        viewModel.showBannerMessage("桌面懸浮球已啟用！您可隨時拖曳或點擊開錄。")
+                        viewModel.showBannerMessage("貼邊隱形側邊欄已啟用！錄影時可隨時點擊螢幕邊緣快速停止。")
                     } else {
-                        viewModel.showBannerMessage("未授予「顯示於其他應用程式上層」權限，無法啟用懸浮球。")
+                        viewModel.showBannerMessage("未授予「顯示於其他應用程式上層」權限，無法啟用側邊欄。")
                     }
                 }
 
                 val triggerStartRecording = {
                     val missingPermissions = mutableListOf<String>()
-                    if (uiState.config.audioSourceMode.needsMic &&
+                    // Both Internal AudioPlaybackCapture and Microphone require RECORD_AUDIO on Android 10+
+                    if (uiState.config.audioSourceMode.needsRecordAudioPermission &&
                         ContextCompat.checkSelfPermission(
                             context,
                             Manifest.permission.RECORD_AUDIO
@@ -341,7 +350,6 @@ fun LosslessRecorderApp(
             }
         ) { innerPadding ->
             if (isExpandedScreen) {
-                // Canonical Tablet / Landscape Layout: NavigationRail + Side-by-Side Telemetry & Settings
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -416,7 +424,6 @@ fun LosslessRecorderApp(
                     }
                 }
             } else {
-                // Compact Mobile Layout: Scrollable Column with Telemetry Header + Active Tab Content
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -497,6 +504,8 @@ private fun ActiveDestinationContent(
                 onMicGainChange = viewModel::setMicAudioGain,
                 onEnableNotificationChange = viewModel::setEnableNotificationController,
                 onEnableFloatingBallChange = viewModel::setEnableFloatingBall,
+                onOverlayControlStyleChange = viewModel::setOverlayControlStyle,
+                onSidebarTapBehaviorChange = viewModel::setSidebarTapBehavior,
                 onHideFloatingBallOnRecordChange = viewModel::setHideFloatingBallWhileRecording,
                 onRequestOverlayPermission = onRequestOverlayPermission,
                 onAddQuickSettingsTileClick = onAddQuickSettingsTile,

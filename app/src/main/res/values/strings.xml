@@ -7,7 +7,7 @@
 
     <!-- Navigation Tabs -->
     <string name="nav_encoder">無損編碼</string>
-    <string name="nav_audio_controls">音源與入口</string>
+    <string name="nav_audio_controls">音源與側邊欄</string>
     <string name="nav_recordings">錄影作品庫</string>
 
     <!-- Telemetry Dashboard -->
@@ -54,14 +54,20 @@
     <string name="audio_mode_both">系統內錄 + 麥克風 (雙路 16-bit PCM 即時混音)</string>
     <string name="audio_internal_gain_label">系統內錄音量增益</string>
     <string name="audio_mic_gain_label">麥克風音量增益</string>
-    <string name="audio_drm_notice">提示：Android 10+ 系統內錄支援絕大多數遊戲與影音 App；受 DRM 保護或明確禁止擷取的應用程式會由系統自動靜音。</string>
+    <string name="audio_drm_notice">提示：系統內錄與麥克風錄音皆需授予「錄音權限」。受 DRM 保護或禁止擷取之少數 App 會由系統自動靜音。</string>
 
-    <string name="section_control_entries_title">2. 三大操控入口與防入鏡設定</string>
+    <string name="section_control_entries_title">2. 側邊欄快捷控制與三大操控入口</string>
     <string name="control_notif_title">常駐通知欄控制器</string>
     <string name="control_notif_desc">提供開始/暫停/停止按鈕，點擊後自動延遲 300ms 開錄避免通知欄入鏡</string>
-    <string name="control_floating_title">桌面懸浮球控制器 (Overlay Ball)</string>
-    <string name="control_floating_desc">可拖曳靠邊吸附，支援倒數計時與開錄瞬間自動隱藏避免入鏡</string>
-    <string name="control_floating_hide_on_record">錄影期間自動完全隱藏懸浮球 (零入鏡模式)</string>
+    <string name="control_floating_title">啟用螢幕邊緣側邊欄 / 懸浮控制器</string>
+    <string name="control_floating_desc">吸附於螢幕邊緣的極細隱形把手，不遮擋錄影畫面，隨時快速停止或暫停錄影</string>
+    <string name="control_style_label">懸浮控制器外觀型態</string>
+    <string name="control_style_sidebar">貼邊隱形側邊欄 (推薦・不擋畫面)</string>
+    <string name="control_style_ball">傳統圓形懸浮球</string>
+    <string name="sidebar_tap_behavior_label">錄影中點擊側邊欄行為</string>
+    <string name="sidebar_tap_expand">展開側邊控制面板 (含停止/暫停，3秒自動收起)</string>
+    <string name="sidebar_tap_instant_stop">一鍵直接停止錄影並存檔 (極速零干擾)</string>
+    <string name="control_floating_hide_on_record">錄影期間完全隱藏側邊欄/懸浮球 (僅靠通知欄或磁貼停止)</string>
     <string name="control_qs_tile_title">系統下拉快速設定磁貼 (Quick Settings Tile)</string>
     <string name="control_qs_tile_desc">從螢幕頂部下拉控制中心即可一鍵啟動或停止無損錄影</string>
     <string name="control_qs_tile_action">立即新增磁貼至系統控制中心</string>
@@ -83,7 +89,7 @@
     <!-- Recordings Library -->
     <string name="library_title">無損錄影作品與規格檢驗室</string>
     <string name="library_empty_title">尚無無損錄影檔案</string>
-    <string name="library_empty_subtitle">點擊下方「啟動點對點無損錄影」或使用桌面懸浮球、下拉磁貼開始您的第一部原生像素錄製。檔案將自動保存於 Movies/LosslessRecorder。</string>
+    <string name="library_empty_subtitle">點擊下方「啟動點對點無損錄影」或使用貼邊側邊欄、下拉磁貼開始您的第一部原生像素錄製。檔案將自動保存於 Movies/LosslessRecorder。</string>
     <string name="library_refresh">重新掃描相簿</string>
     <string name="video_action_play">播放預覽</string>
     <string name="video_action_inspect">檢驗規格</string>

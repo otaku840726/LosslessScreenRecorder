@@ -17,7 +17,6 @@ import com.lossless.screenrecorder.model.RecorderConfig
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.max
 import kotlin.math.roundToInt
 
 class AudioCaptureMixerEngine(
@@ -26,12 +25,14 @@ class AudioCaptureMixerEngine(
     private val muxerWrapper: MediaMuxerWrapper
 ) {
     private val sampleRate = 48_000
-    private val channelCount = 2
-    private val channelConfig = AudioFormat.CHANNEL_IN_STEREO
+    private val outputChannelCount = 2
+    private val stereoMask = AudioFormat.CHANNEL_IN_STEREO
+    private val monoMask = AudioFormat.CHANNEL_IN_MONO
     private val audioEncoding = AudioFormat.ENCODING_PCM_16BIT
 
     private var internalRecord: AudioRecord? = null
     private var micRecord: AudioRecord? = null
+    private var isMicStereo: Boolean = true
     private var audioCodec: MediaCodec? = null
 
     private val isRunning = AtomicBoolean(false)
@@ -50,10 +51,11 @@ class AudioCaptureMixerEngine(
             return
         }
 
-        val minBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioEncoding)
+        val minStereoBuf = AudioRecord.getMinBufferSize(sampleRate, stereoMask, audioEncoding)
             .coerceAtLeast(4096)
-        val bufferSizeInBytes = minBufSize * 4
+        val stereoBufferSize = minStereoBuf * 4
 
+        // 1. Initialize Internal AudioPlaybackCapture (Stereo 48kHz 16-bit PCM)
         if (config.audioSourceMode.needsInternal) {
             internalRecord = runCatching {
                 val captureConfig = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
@@ -65,33 +67,56 @@ class AudioCaptureMixerEngine(
                 val audioFormat = AudioFormat.Builder()
                     .setEncoding(audioEncoding)
                     .setSampleRate(sampleRate)
-                    .setChannelMask(channelConfig)
+                    .setChannelMask(stereoMask)
                     .build()
 
                 AudioRecord.Builder()
                     .setAudioFormat(audioFormat)
-                    .setBufferSizeInBytes(bufferSizeInBytes)
+                    .setBufferSizeInBytes(stereoBufferSize)
                     .setAudioPlaybackCaptureConfig(captureConfig)
                     .build()
                     .takeIf { it.state == AudioRecord.STATE_INITIALIZED }
             }.getOrNull()
         }
 
+        // 2. Initialize Microphone AudioRecord (Try Stereo first, automatic fallback to Mono)
         if (config.audioSourceMode.needsMic) {
-            micRecord = runCatching {
-                val audioFormat = AudioFormat.Builder()
+            val stereoMic = runCatching {
+                val format = AudioFormat.Builder()
                     .setEncoding(audioEncoding)
                     .setSampleRate(sampleRate)
-                    .setChannelMask(channelConfig)
+                    .setChannelMask(stereoMask)
                     .build()
-
                 AudioRecord.Builder()
                     .setAudioSource(MediaRecorder.AudioSource.MIC)
-                    .setAudioFormat(audioFormat)
-                    .setBufferSizeInBytes(bufferSizeInBytes)
+                    .setAudioFormat(format)
+                    .setBufferSizeInBytes(stereoBufferSize)
                     .build()
                     .takeIf { it.state == AudioRecord.STATE_INITIALIZED }
             }.getOrNull()
+
+            if (stereoMic != null) {
+                micRecord = stereoMic
+                isMicStereo = true
+            } else {
+                val minMonoBuf = AudioRecord.getMinBufferSize(sampleRate, monoMask, audioEncoding)
+                    .coerceAtLeast(2048)
+                val monoMic = runCatching {
+                    val format = AudioFormat.Builder()
+                        .setEncoding(audioEncoding)
+                        .setSampleRate(sampleRate)
+                        .setChannelMask(monoMask)
+                        .build()
+                    AudioRecord.Builder()
+                        .setAudioSource(MediaRecorder.AudioSource.MIC)
+                        .setAudioFormat(format)
+                        .setBufferSizeInBytes(minMonoBuf * 4)
+                        .build()
+                        .takeIf { it.state == AudioRecord.STATE_INITIALIZED }
+                }.getOrNull()
+                micRecord = monoMic
+                isMicStereo = false
+            }
         }
 
         if (internalRecord == null && micRecord == null) {
@@ -99,12 +124,12 @@ class AudioCaptureMixerEngine(
             return
         }
 
-        // Configure 48kHz / 320kbps Stereo AAC-LC Hardware Encoder
+        // 3. Configure 48kHz / 320kbps Stereo AAC-LC Hardware Encoder
         val codec = runCatching {
             val format = MediaFormat.createAudioFormat(
                 MediaFormat.MIMETYPE_AUDIO_AAC,
                 sampleRate,
-                channelCount
+                outputChannelCount
             ).apply {
                 setInteger(
                     MediaFormat.KEY_AAC_PROFILE,
@@ -132,6 +157,7 @@ class AudioCaptureMixerEngine(
         runCatching { micRecord?.startRecording() }
 
         audioThread = Thread({ captureMixAndEncodeLoop() }, "LosslessAudioMixerThread").apply {
+            priority = Thread.MAX_PRIORITY
             start()
         }
     }
@@ -139,30 +165,81 @@ class AudioCaptureMixerEngine(
     private fun captureMixAndEncodeLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         val codec = audioCodec ?: return
-        val frameShorts = 2048 // 1024 stereo samples per read chunk
-        val internalBuf = ShortArray(frameShorts)
-        val micBuf = ShortArray(frameShorts)
-        val mixedBytes = ByteArray(frameShorts * 2)
+
+        // 1024 stereo frames = 2048 shorts per AAC chunk (~21.333 ms at 48kHz)
+        val stereoFrameShorts = 2048
+        val monoFrameShorts = 1024
+        val chunkDurationNs = (1024L * 1_000_000_000L) / sampleRate // 21,333,333 ns
+
+        val internalStereoBuf = ShortArray(stereoFrameShorts)
+        val micRawBuf = ShortArray(stereoFrameShorts)
+        val micStereoBuf = ShortArray(stereoFrameShorts)
+        val mixedBytes = ByteArray(stereoFrameShorts * 2)
         val bufferInfo = MediaCodec.BufferInfo()
 
+        var nextChunkTargetNano = System.nanoTime()
+
         while (isRunning.get()) {
+            val loopStartNano = System.nanoTime()
             val sysRec = internalRecord
             val mRec = micRecord
 
-            val sysRead = if (sysRec != null) {
-                sysRec.read(internalBuf, 0, frameShorts, AudioRecord.READ_NON_BLOCKING)
-            } else 0
+            // A. Read Microphone (if active). Blocking read on Mic naturally paces the loop at 48kHz!
+            var hasMicSamples = false
+            if (mRec != null) {
+                if (isMicStereo) {
+                    val readCount = mRec.read(micStereoBuf, 0, stereoFrameShorts, AudioRecord.READ_BLOCKING)
+                    if (readCount > 0) {
+                        hasMicSamples = true
+                        if (readCount < stereoFrameShorts) {
+                            micStereoBuf.fill(0, readCount, stereoFrameShorts)
+                        }
+                    }
+                } else {
+                    val readCount = mRec.read(micRawBuf, 0, monoFrameShorts, AudioRecord.READ_BLOCKING)
+                    if (readCount > 0) {
+                        hasMicSamples = true
+                        // Upmix Mono to Stereo (L = sample, R = sample)
+                        for (i in 0 until monoFrameShorts) {
+                            val s = if (i < readCount) micRawBuf[i] else 0
+                            micStereoBuf[i * 2] = s
+                            micStereoBuf[i * 2 + 1] = s
+                        }
+                    }
+                }
+            }
 
-            val micRead = if (mRec != null) {
-                mRec.read(micBuf, 0, frameShorts, AudioRecord.READ_BLOCKING)
-            } else if (sysRec != null) {
-                sysRec.read(internalBuf, 0, frameShorts, AudioRecord.READ_BLOCKING)
-            } else 0
+            // B. Read Internal System Audio (non-blocking so silent moments in apps never stall the pipeline!)
+            var hasInternalSamples = false
+            if (sysRec != null) {
+                val sysRead = sysRec.read(
+                    internalStereoBuf,
+                    0,
+                    stereoFrameShorts,
+                    AudioRecord.READ_NON_BLOCKING
+                )
+                if (sysRead > 0) {
+                    hasInternalSamples = true
+                    if (sysRead < stereoFrameShorts) {
+                        internalStereoBuf.fill(0, sysRead, stereoFrameShorts)
+                    }
+                } else {
+                    // System audio is currently silent; fill with digital silence so AAC stream stays continuous
+                    internalStereoBuf.fill(0, 0, stereoFrameShorts)
+                }
+            }
 
-            val samplesToProcess = max(sysRead, micRead)
-            if (samplesToProcess <= 0) {
-                SystemClock.sleep(5)
-                continue
+            // C. If only Internal Audio is active (no blocking Mic), pace loop to exact 48kHz (21.33ms per 1024 frames)
+            if (mRec == null) {
+                nextChunkTargetNano += chunkDurationNs
+                val sleepNs = nextChunkTargetNano - System.nanoTime()
+                if (sleepNs > 1_000_000L) {
+                    SystemClock.sleep(sleepNs / 1_000_000L)
+                } else if (sleepNs < -chunkDurationNs * 3) {
+                    nextChunkTargetNano = System.nanoTime()
+                }
+            } else {
+                nextChunkTargetNano = loopStartNano + chunkDurationNs
             }
 
             if (muxerWrapper.isCurrentlyPaused()) {
@@ -173,11 +250,15 @@ class AudioCaptureMixerEngine(
             val sysGain = internalGain
             val mGain = micGain
 
-            // Real-time 16-bit PCM mixing with independent gain and anti-clipping clamp
+            // D. Mix Internal Stereo + Mic Stereo into 16-bit Little-Endian PCM
             val byteBuffer = ByteBuffer.wrap(mixedBytes).order(ByteOrder.LITTLE_ENDIAN)
-            for (i in 0 until samplesToProcess) {
-                val sysSample = if (i < sysRead) (internalBuf[i] * sysGain).roundToInt() else 0
-                val micSample = if (i < micRead) (micBuf[i] * mGain).roundToInt() else 0
+            for (i in 0 until stereoFrameShorts) {
+                val sysSample = if (hasInternalSamples) {
+                    (internalStereoBuf[i] * sysGain).roundToInt()
+                } else 0
+                val micSample = if (hasMicSamples) {
+                    (micStereoBuf[i] * mGain).roundToInt()
+                } else 0
                 val mixed = (sysSample + micSample).coerceIn(
                     Short.MIN_VALUE.toInt(),
                     Short.MAX_VALUE.toInt()
@@ -185,8 +266,7 @@ class AudioCaptureMixerEngine(
                 byteBuffer.putShort(mixed)
             }
 
-            val bytesToFeed = samplesToProcess * 2
-            // Use System.nanoTime() / 1000L (CLOCK_MONOTONIC) matching Surface video timestamps
+            val bytesToFeed = stereoFrameShorts * 2
             val ptsUs = System.nanoTime() / 1000L
 
             val inIndex = runCatching { codec.dequeueInputBuffer(10_000L) }.getOrDefault(-1)
@@ -204,6 +284,9 @@ class AudioCaptureMixerEngine(
 
             drainAudioCodecOutput(codec, bufferInfo)
         }
+
+        // Flush final audio frames on stop
+        drainAudioCodecOutput(codec, bufferInfo)
     }
 
     private fun drainAudioCodecOutput(codec: MediaCodec, bufferInfo: MediaCodec.BufferInfo) {

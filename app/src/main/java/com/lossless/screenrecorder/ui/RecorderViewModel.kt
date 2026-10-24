@@ -13,10 +13,12 @@ import com.lossless.screenrecorder.model.AudioSourceMode
 import com.lossless.screenrecorder.model.BitrateControlMode
 import com.lossless.screenrecorder.model.HardwareCapabilities
 import com.lossless.screenrecorder.model.KeyFrameIntervalMode
+import com.lossless.screenrecorder.model.OverlayControlStyle
 import com.lossless.screenrecorder.model.RecordedVideoItem
 import com.lossless.screenrecorder.model.RecorderConfig
 import com.lossless.screenrecorder.model.RecordingSessionState
 import com.lossless.screenrecorder.model.ResolutionMode
+import com.lossless.screenrecorder.model.SidebarTapBehavior
 import com.lossless.screenrecorder.model.VideoCodecType
 import com.lossless.screenrecorder.service.RecordingStateHolder
 import com.lossless.screenrecorder.service.ScreenRecordService
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -94,6 +97,18 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     init {
         refreshRecordings()
         viewModelScope.launch {
+            val initialCfg = preferencesRepository.configFlow.first()
+            if (initialCfg.enableFloatingBall && Settings.canDrawOverlays(appContext)) {
+                ScreenRecordService.syncFloatingOverlay(
+                    context = appContext,
+                    enable = true,
+                    style = initialCfg.overlayControlStyle,
+                    tapBehavior = initialCfg.sidebarTapBehavior,
+                    hideOnRecord = initialCfg.hideFloatingBallWhileRecording
+                )
+            }
+        }
+        viewModelScope.launch {
             RecordingStateHolder.recordingsRefreshTrigger.collect { trigger ->
                 if (trigger > 0L) {
                     refreshRecordings()
@@ -103,7 +118,20 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshOverlayPermissionState() {
-        _canDrawOverlays.value = Settings.canDrawOverlays(appContext)
+        val granted = Settings.canDrawOverlays(appContext)
+        _canDrawOverlays.value = granted
+        if (granted) {
+            val cfg = uiState.value.config
+            if (cfg.enableFloatingBall) {
+                ScreenRecordService.syncFloatingOverlay(
+                    context = appContext,
+                    enable = true,
+                    style = cfg.overlayControlStyle,
+                    tapBehavior = cfg.sidebarTapBehavior,
+                    hideOnRecord = cfg.hideFloatingBallWhileRecording
+                )
+            }
+        }
     }
 
     fun refreshRecordings() {
@@ -229,20 +257,64 @@ class RecorderViewModel(application: Application) : AndroidViewModel(application
 
     fun setEnableFloatingBall(enabled: Boolean) {
         viewModelScope.launch {
-            val currentHide = uiState.value.config.hideFloatingBallWhileRecording
+            val cfg = uiState.value.config
             preferencesRepository.updateConfig { it.copy(enableFloatingBall = enabled) }
             if (!enabled || Settings.canDrawOverlays(appContext)) {
-                ScreenRecordService.syncFloatingBall(appContext, enabled, currentHide)
+                ScreenRecordService.syncFloatingOverlay(
+                    context = appContext,
+                    enable = enabled,
+                    style = cfg.overlayControlStyle,
+                    tapBehavior = cfg.sidebarTapBehavior,
+                    hideOnRecord = cfg.hideFloatingBallWhileRecording
+                )
+            }
+        }
+    }
+
+    fun setOverlayControlStyle(style: OverlayControlStyle) {
+        viewModelScope.launch {
+            val cfg = uiState.value.config
+            preferencesRepository.updateConfig { it.copy(overlayControlStyle = style) }
+            if (cfg.enableFloatingBall && Settings.canDrawOverlays(appContext)) {
+                ScreenRecordService.syncFloatingOverlay(
+                    context = appContext,
+                    enable = true,
+                    style = style,
+                    tapBehavior = cfg.sidebarTapBehavior,
+                    hideOnRecord = cfg.hideFloatingBallWhileRecording
+                )
+            }
+        }
+    }
+
+    fun setSidebarTapBehavior(behavior: SidebarTapBehavior) {
+        viewModelScope.launch {
+            val cfg = uiState.value.config
+            preferencesRepository.updateConfig { it.copy(sidebarTapBehavior = behavior) }
+            if (cfg.enableFloatingBall && Settings.canDrawOverlays(appContext)) {
+                ScreenRecordService.syncFloatingOverlay(
+                    context = appContext,
+                    enable = true,
+                    style = cfg.overlayControlStyle,
+                    tapBehavior = behavior,
+                    hideOnRecord = cfg.hideFloatingBallWhileRecording
+                )
             }
         }
     }
 
     fun setHideFloatingBallWhileRecording(hide: Boolean) {
         viewModelScope.launch {
-            val enabled = uiState.value.config.enableFloatingBall
+            val cfg = uiState.value.config
             preferencesRepository.updateConfig { it.copy(hideFloatingBallWhileRecording = hide) }
-            if (enabled && Settings.canDrawOverlays(appContext)) {
-                ScreenRecordService.syncFloatingBall(appContext, true, hide)
+            if (cfg.enableFloatingBall && Settings.canDrawOverlays(appContext)) {
+                ScreenRecordService.syncFloatingOverlay(
+                    context = appContext,
+                    enable = true,
+                    style = cfg.overlayControlStyle,
+                    tapBehavior = cfg.sidebarTapBehavior,
+                    hideOnRecord = hide
+                )
             }
         }
     }

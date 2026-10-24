@@ -37,7 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lossless.screenrecorder.R
 import com.lossless.screenrecorder.model.AudioSourceMode
+import com.lossless.screenrecorder.model.OverlayControlStyle
 import com.lossless.screenrecorder.model.RecorderConfig
+import com.lossless.screenrecorder.model.SidebarTapBehavior
 import kotlin.math.roundToInt
 
 @Composable
@@ -49,6 +51,8 @@ fun AudioAndControlsScreen(
     onMicGainChange: (Float) -> Unit,
     onEnableNotificationChange: (Boolean) -> Unit,
     onEnableFloatingBallChange: (Boolean) -> Unit,
+    onOverlayControlStyleChange: (OverlayControlStyle) -> Unit,
+    onSidebarTapBehaviorChange: (SidebarTapBehavior) -> Unit,
     onHideFloatingBallOnRecordChange: (Boolean) -> Unit,
     onRequestOverlayPermission: () -> Unit,
     onAddQuickSettingsTileClick: () -> Unit,
@@ -73,7 +77,7 @@ fun AudioAndControlsScreen(
 
             AudioModeOptionCard(
                 title = stringResource(R.string.audio_mode_internal),
-                subtitle = "直接擷取系統內部數位音訊流，零環境噪音干擾",
+                subtitle = "直接擷取系統內部數位音訊流 (遊戲/影片原聲)，零環境噪音干擾",
                 icon = Icons.Default.VolumeUp,
                 selected = config.audioSourceMode == AudioSourceMode.INTERNAL_ONLY,
                 onClick = { onAudioSourceModeChange(AudioSourceMode.INTERNAL_ONLY) },
@@ -82,7 +86,7 @@ fun AudioAndControlsScreen(
 
             AudioModeOptionCard(
                 title = stringResource(R.string.audio_mode_mic),
-                subtitle = "僅錄製麥克風人聲解說 (48kHz / 320kbps AAC-LC)",
+                subtitle = "僅錄製麥克風人聲解說 (自動相容單聲道/立體聲轉 48kHz / 320kbps AAC)",
                 icon = Icons.Default.Mic,
                 selected = config.audioSourceMode == AudioSourceMode.MIC_ONLY,
                 onClick = { onAudioSourceModeChange(AudioSourceMode.MIC_ONLY) },
@@ -98,7 +102,6 @@ fun AudioAndControlsScreen(
                 testTag = "audio_mode_mute"
             )
 
-            // Independent Volume Gain Sliders when Internal or Mic is enabled
             if (config.audioSourceMode.needsInternal) {
                 Spacer(modifier = Modifier.height(4.dp))
                 GainSliderControl(
@@ -119,7 +122,6 @@ fun AudioAndControlsScreen(
                 )
             }
 
-            // DRM / Android 10+ AudioPlaybackCapture Note
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                 shape = MaterialTheme.shapes.small,
@@ -144,37 +146,9 @@ fun AudioAndControlsScreen(
             }
         }
 
-        // Section 2: Three Control Entry Points (Notification, Floating Ball, Quick Settings Tile)
+        // Section 2: Edge Sidebar Controller + Notification + Quick Settings Tile
         SectionContainerCard(title = stringResource(R.string.section_control_entries_title)) {
-            // Entry 1: Persistent Notification Controller
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.control_notif_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = stringResource(R.string.control_notif_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = config.enableNotificationController,
-                    onCheckedChange = onEnableNotificationChange,
-                    modifier = Modifier.testTag("switch_notification_controller")
-                )
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-            // Entry 2: Desktop Floating Overlay Ball
+            // Entry 1: Edge Sidebar / Floating Overlay Controller
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -206,26 +180,123 @@ fun AudioAndControlsScreen(
                 )
             }
 
-            if (config.enableFloatingBall || !canDrawOverlays) {
-                Row(
+            if (!canDrawOverlays) {
+                FilledTonalButton(
+                    onClick = onRequestOverlayPermission,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .testTag("grant_overlay_permission_button")
                 ) {
                     Text(
-                        text = stringResource(R.string.control_floating_hide_on_record),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(
-                        checked = config.hideFloatingBallWhileRecording,
-                        onCheckedChange = onHideFloatingBallOnRecordChange,
-                        modifier = Modifier.testTag("switch_hide_floating_ball_on_record")
+                        text = "點擊授權「顯示於其他應用程式上層」以啟用貼邊側邊欄",
+                        style = MaterialTheme.typography.labelLarge
                     )
                 }
+            }
+
+            // Style Selector: Edge Sidebar vs Floating Ball
+            Text(
+                text = stringResource(R.string.control_style_label),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = config.overlayControlStyle == OverlayControlStyle.EDGE_SIDEBAR,
+                    onClick = { onOverlayControlStyleChange(OverlayControlStyle.EDGE_SIDEBAR) },
+                    label = {
+                        Text(
+                            text = stringResource(R.string.control_style_sidebar),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .testTag("style_chip_edge_sidebar")
+                )
+                FilterChip(
+                    selected = config.overlayControlStyle == OverlayControlStyle.FLOATING_BALL,
+                    onClick = { onOverlayControlStyleChange(OverlayControlStyle.FLOATING_BALL) },
+                    label = {
+                        Text(
+                            text = stringResource(R.string.control_style_ball),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(0.8f)
+                        .testTag("style_chip_floating_ball")
+                )
+            }
+
+            // Sidebar Tap Behavior during Recording
+            if (config.overlayControlStyle == OverlayControlStyle.EDGE_SIDEBAR) {
+                Text(
+                    text = stringResource(R.string.sidebar_tap_behavior_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                SidebarBehaviorOptionRow(
+                    title = stringResource(R.string.sidebar_tap_expand),
+                    selected = config.sidebarTapBehavior == SidebarTapBehavior.EXPAND_PANEL,
+                    onClick = { onSidebarTapBehaviorChange(SidebarTapBehavior.EXPAND_PANEL) },
+                    testTag = "sidebar_tap_expand_option"
+                )
+                SidebarBehaviorOptionRow(
+                    title = stringResource(R.string.sidebar_tap_instant_stop),
+                    selected = config.sidebarTapBehavior == SidebarTapBehavior.INSTANT_STOP,
+                    onClick = { onSidebarTapBehaviorChange(SidebarTapBehavior.INSTANT_STOP) },
+                    testTag = "sidebar_tap_instant_stop_option"
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.control_floating_hide_on_record),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = config.hideFloatingBallWhileRecording,
+                    onCheckedChange = onHideFloatingBallOnRecordChange,
+                    modifier = Modifier.testTag("switch_hide_floating_ball_on_record")
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            // Entry 2: Persistent Notification Controller
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.control_notif_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.control_notif_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = config.enableNotificationController,
+                    onCheckedChange = onEnableNotificationChange,
+                    modifier = Modifier.testTag("switch_notification_controller")
+                )
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -321,6 +392,46 @@ fun AudioAndControlsScreen(
                     modifier = Modifier.testTag("switch_auto_stop_screen_off")
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SidebarBehaviorOptionRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    testTag: String
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .testTag(testTag),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        },
+        shape = MaterialTheme.shapes.small,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            RadioButton(selected = selected, onClick = onClick)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
